@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: kafka-rest-api
+  threads:
+    virtual:
+      enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    properties:
+      # mTLS to Kafka brokers (client auth)
+      "security.protocol": SSL
+      "ssl.keystore.location": ${KAFKA_SSL_KEYSTORE:}
+      "ssl.keystore.password": ${KAFKA_SSL_KEYSTORE_PASSWORD:}
+      "ssl.truststore.location": ${KAFKA_SSL_TRUSTSTORE:}
+      "ssl.truststore.password": ${KAFKA_SSL_TRUSTSTORE_PASSWORD:}
+    producer:
+      # 64KB batches to improve throughput while keeping latency bounded.
+      batch-size: 65536
+      # zstd offers high compression ratio with good CPU/throughput trade-off.
+      compression-type: zstd
+      # 256MB buffer to absorb short traffic bursts at 200k TPS.
+      buffer-memory: 268435456
+      # For maximum throughput use 1; for durability use all + broker min.insync.replicas=2.
+      acks: 1
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: com.example.kafkarestapi.kafka.AvroEventSerializer
+      properties:
+        # 20ms linger allows batching at high TPS without excessive latency.
+        "linger.ms": 20
+    template:
+      observation-enabled: true
+
+server:
+  tomcat:
+    # With virtual threads, the limit is on request concurrency, not platform threads.
+    threads:
+      max: 20000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+
+app:
+  kafka:
+    topic:
+      events: ${EVENTS_TOPIC:events}

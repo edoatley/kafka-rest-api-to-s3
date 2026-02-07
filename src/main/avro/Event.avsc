@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "Event",
+  "namespace": "com.example.kafkarestapi.avro",
+  "fields": [
+    { "name": "id", "type": "string" },
+    { "name": "type", "type": "string" },
+    { "name": "timestampMs", "type": "long" },
+    { "name": "payload", "type": "string" }
+  ]
+}
