@@ -11,27 +11,20 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
-import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.Network;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.kafka.KafkaContainer;
-import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.utility.DockerImageName;
 
-@Testcontainers(disabledWithoutDocker = true)
-@EnabledIfEnvironmentVariable(named = "RUN_DOCKER_IT", matches = "true")
+@EmbeddedKafka(partitions = 1, topics = "events")
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {
+        "spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}",
         "app.security.enabled=false",
         "spring.kafka.properties.security.protocol=PLAINTEXT",
         "spring.kafka.properties.ssl.keystore.location=",
@@ -41,28 +34,16 @@ import org.testcontainers.utility.DockerImageName;
         "logging.level.org.apache.kafka.storage.internals.log=OFF"
     }
 )
-@Import(KafkaIntegrationTest.TestSecurityConfig.class)
-class KafkaIntegrationTest {
+@Import(EmbeddedKafkaIntegrationTest.TestSecurityConfig.class)
+class EmbeddedKafkaIntegrationTest {
 
     @LocalServerPort
     private int port;
 
-    private static final Network network = Network.newNetwork();
-    @Container
-    @SuppressWarnings("resource")
-    private static final KafkaContainer kafka = new KafkaContainer(
-        DockerImageName.parse("apache/kafka:3.7.1")
-    ).withNetwork(network).withNetworkAliases("kafka");
-
-    @DynamicPropertySource
-    static void kafkaProps(DynamicPropertyRegistry registry) {
-        registry.add("spring.kafka.bootstrap-servers", kafka::getBootstrapServers);
-    }
-
     @Test
     void shouldAcceptEvent() throws Exception {
         var payload = """
-            {"id":"evt-1","type":"user.created","payload":"{\\"userId\\":\\"123\\"}"}
+            {"id":"evt-embedded-1","type":"user.created","payload":"{\\"userId\\":\\"123\\"}"}
             """.trim();
         var client = HttpClient.newHttpClient();
         var request = HttpRequest.newBuilder()
@@ -80,8 +61,8 @@ class KafkaIntegrationTest {
     void shouldStreamAcksForBatch() throws Exception {
         var requestBody = String.join(
             "\n",
-            "{\"id\":\"evt-10\",\"type\":\"user.created\",\"payload\":\"{\\\"userId\\\":\\\"10\\\"}\"}",
-            "{\"id\":\"evt-11\",\"type\":\"user.updated\",\"payload\":\"{\\\"userId\\\":\\\"11\\\"}\"}",
+            "{\"id\":\"evt-embedded-10\",\"type\":\"user.created\",\"payload\":\"{\\\"userId\\\":\\\"10\\\"}\"}",
+            "{\"id\":\"evt-embedded-11\",\"type\":\"user.updated\",\"payload\":\"{\\\"userId\\\":\\\"11\\\"}\"}",
             ""
         );
 
@@ -111,8 +92,8 @@ class KafkaIntegrationTest {
                 }
             }
             assertThat(lines).hasSize(2);
-            assertThat(lines.get(0)).contains("\"id\":\"evt-10\"");
-            assertThat(lines.get(1)).contains("\"id\":\"evt-11\"");
+            assertThat(lines.get(0)).contains("\"id\":\"evt-embedded-10\"");
+            assertThat(lines.get(1)).contains("\"id\":\"evt-embedded-11\"");
         }
     }
 

@@ -1,7 +1,9 @@
-# Kafka REST API (Java 21 + Spring Boot)
+# Kafka REST API
 
-High-throughput REST API that ingests events and publishes them to Kafka using Java 21 virtual threads.
-Avro is used for binary encoding without relying on a Schema Registry.
+## Introduction
+
+This project aims to create a high-throughput REST API that ingests events and publishes them to
+Kafka using Java 21 virtual threads. Avro is used for binary encoding without relying on a Schema Registry.
 
 ## Key Features
 - Spring MVC with Java 21 virtual threads (`spring.threads.virtual.enabled=true`)
@@ -12,14 +14,17 @@ Avro is used for binary encoding without relying on a Schema Registry.
 - Testcontainers Kafka integration test
 
 ## Requirements
+
 - Java 21
-- Gradle (if you do not have a wrapper)
+- Gradle 8+ (if you do not have a wrapper)
 - Docker Desktop (for tests or local Kafka)
 
 ## Run Locally (macOS CLI)
 
 ### 1) Start Kafka
+
 Using Docker:
+
 ```
 docker network create kafka-net
 docker run -d --name kafka --network kafka-net -p 9092:9092 \
@@ -33,12 +38,14 @@ docker run -d --name kafka --network kafka-net -p 9092:9092 \
 ```
 
 ### 2) Run the app
+
 ```
 export KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 gradle bootRun
 ```
 
 ### 3) Send a test event
+
 ```
 curl -X POST http://localhost:8080/events \
   -H "Content-Type: application/json" \
@@ -54,6 +61,7 @@ curl -X POST http://localhost:8080/events \
 ```
 
 ### 4) Stream a batch and read acks (NDJSON)
+
 Send newline-delimited JSON and receive a newline-delimited ack stream:
 ```
 printf '%s\n' \
@@ -77,6 +85,7 @@ gradle test
   with compatible Avro schemas.
 
 ## Configuration
+
 See `src/main/resources/application.yml` for:
 - Producer throughput tuning
 - `acks` trade-off between throughput and durability
