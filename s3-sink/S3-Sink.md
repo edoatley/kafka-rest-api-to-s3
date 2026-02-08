@@ -14,6 +14,9 @@ This Spring Cloud Stream application consumes Avro records from Kafka, converts 
 app:
   source-topics: "orders,events"
   dlq-topic: "kafka-s3-sink-dlq"
+  batch:
+    maxRecords: 500
+    flushInterval: PT5S
   local:
     baseDir: /tmp/kafka-s3-sink
   s3:
@@ -33,6 +36,11 @@ app:
       bucket: my-parquet-bucket
       prefix: events/
 ```
+
+Batching behavior is controlled by:
+
+- `app.batch.maxRecords` — number of records to accumulate before writing a Parquet file.
+- `app.batch.flushInterval` — max time to wait before flushing a partial batch (ISO-8601 duration).
 
 ### Local profile (SASL/PLAIN + local output)
 Set `SPRING_PROFILES_ACTIVE=local` and provide credentials:

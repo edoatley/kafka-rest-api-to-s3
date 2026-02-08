@@ -23,6 +23,9 @@ spring:
 
 app:
   source-topics: ""
+  batch:
+    maxRecords: 1
+    flushInterval: PT0S
   local:
     baseDir: /tmp/kafka-s3-sink
   s3:

@@ -2,6 +2,7 @@ package com.example.kafka.s3.sink.config;
 
 import java.net.URI;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,6 +16,7 @@ public class AppProperties {
 	private List<TopicMapping> mappings = new ArrayList<>();
 	private LocalProperties local = new LocalProperties();
 	private S3Properties s3 = new S3Properties();
+	private BatchProperties batch = new BatchProperties();
 
 	public String getSourceTopics() {
 		return sourceTopics;
@@ -54,6 +56,14 @@ public class AppProperties {
 
 	public void setS3(S3Properties s3) {
 		this.s3 = s3;
+	}
+
+	public BatchProperties getBatch() {
+		return batch;
+	}
+
+	public void setBatch(BatchProperties batch) {
+		this.batch = batch;
 	}
 
 	public static class TopicMapping {
@@ -179,6 +189,27 @@ public class AppProperties {
 
 		public void setSecretAccessKey(String secretAccessKey) {
 			this.secretAccessKey = secretAccessKey;
+		}
+	}
+
+	public static class BatchProperties {
+		private int maxRecords = 1;
+		private Duration flushInterval = Duration.ZERO;
+
+		public int getMaxRecords() {
+			return maxRecords;
+		}
+
+		public void setMaxRecords(int maxRecords) {
+			this.maxRecords = maxRecords;
+		}
+
+		public Duration getFlushInterval() {
+			return flushInterval;
+		}
+
+		public void setFlushInterval(Duration flushInterval) {
+			this.flushInterval = flushInterval;
 		}
 	}
 }
