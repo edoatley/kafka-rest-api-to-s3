@@ -1,0 +1,13 @@
+app:
+  security:
+    enabled: false
+
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    properties:
+      security.protocol: PLAINTEXT
+      ssl.keystore.location: ""
+      ssl.keystore.password: ""
+      ssl.truststore.location: ""
+      ssl.truststore.password: ""

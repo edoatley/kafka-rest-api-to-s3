@@ -14,6 +14,10 @@ java {
     }
 }
 
+springBoot {
+    mainClass.set("com.example.kafkarestapi.KafkaRestApiApplication")
+}
+
 repositories {
     mavenCentral()
 }
@@ -40,9 +44,18 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
+tasks.register<org.springframework.boot.gradle.tasks.run.BootRun>("localBootRun") {
+    group = "application"
+    description = "Run the app with the local Spring profile."
+    mainClass.set("com.example.kafkarestapi.KafkaRestApiApplication")
+    classpath = sourceSets["main"].runtimeClasspath
+    systemProperty("spring.profiles.active", "local")
+    environment("SPRING_PROFILES_ACTIVE", "local")
+}
+
 sourceSets {
     main {
-        java.srcDir("$buildDir/generated-main-avro-java")
+        java.srcDir(layout.buildDirectory.dir("generated-main-avro-java"))
     }
 }
 
