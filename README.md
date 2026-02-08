@@ -25,6 +25,18 @@ flowchart LR
 - `s3-sink/` — Kafka consumer that writes Parquet to local or S3.
   See `s3-sink/S3-Sink.md` for sink behavior and configuration.
 
+## Key configuration (high level)
+
+- API Kafka topic name: `EVENTS_TOPIC` (default `events`)
+- API security/profile: `SPRING_PROFILES_ACTIVE=local` disables OAuth2 and uses PLAINTEXT Kafka
+- Sink input/output mappings: `app.source-topics` and `app.mappings` control topic routing
+- Sink batching: `app.batch.maxRecords` and `app.batch.flushInterval`
+- Sink S3 endpoint override (LocalStack/testing): `app.s3.endpoint` (env `APP_S3_ENDPOINT`)
+
+See module docs for full configuration reference:
+- `api/API.md`
+- `s3-sink/S3-Sink.md`
+
 ## Prerequisites
 
 - Java 21
@@ -34,6 +46,7 @@ flowchart LR
 ## Docker Compose demo (API -> Kafka -> Parquet -> LocalStack S3)
 
 This demo brings up Kafka, LocalStack, the API, and the sink with a single compose file.
+The sink runs with the `demo-s3` profile, which targets LocalStack S3.
 
 ### 1) Start the stack
 
@@ -176,11 +189,11 @@ AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_DEFAULT_REGION=us-east-1 \
   aws --endpoint-url=http://localhost:4566 s3 mb s3://demo-parquet-bucket
 ```
 
-3) Run the sink with S3 overrides:
+3) Run the sink with the `demo-s3` profile:
 
 ```bash
-export SPRING_APPLICATION_JSON='{"app":{"mappings":[{"topic":"events","destination":"S3","bucket":"demo-parquet-bucket","prefix":"events/"}],"s3":{"region":"us-east-1","endpoint":"http://localhost:4566","pathStyle":true,"accessKeyId":"test","secretAccessKey":"test"}}}'
-SPRING_PROFILES_ACTIVE=demo ./gradlew :s3-sink:bootRun
+export APP_S3_ENDPOINT=http://localhost:4566
+SPRING_PROFILES_ACTIVE=demo-s3 ./gradlew :s3-sink:bootRun
 ```
 
 4) Verify objects:

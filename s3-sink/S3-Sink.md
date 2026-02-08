@@ -10,37 +10,56 @@ This Spring Cloud Stream application consumes Avro records from Kafka, converts 
 ## Configuration
 
 ### Core settings
+The defaults below match `s3-sink/src/main/resources/application.yml`.
+
 ```yaml
 app:
-  source-topics: "orders,events"
+  source-topics: ""
   dlq-topic: "kafka-s3-sink-dlq"
   batch:
-    maxRecords: 500
-    flushInterval: PT5S
+    maxRecords: 1
+    flushInterval: PT0S
   local:
     baseDir: /tmp/kafka-s3-sink
   s3:
     region: us-east-1
-    bucket: my-parquet-bucket
-    prefix: data/
-    endpoint: http://localhost:4566
-    pathStyle: true
-    accessKeyId: test
-    secretAccessKey: test
+    pathStyle: false
   mappings:
-    - topic: orders
-      destination: LOCAL
-      directory: orders
-    - topic: events
-      destination: S3
-      bucket: my-parquet-bucket
-      prefix: events/
+    []
 ```
 
 Batching behavior is controlled by:
 
 - `app.batch.maxRecords` — number of records to accumulate before writing a Parquet file.
 - `app.batch.flushInterval` — max time to wait before flushing a partial batch (ISO-8601 duration).
+
+Topic mappings determine output per topic:
+- `LOCAL` mappings require `directory` (subfolder under `app.local.baseDir`)
+- `S3` mappings can specify `bucket` and `prefix`; if omitted, they fall back to `app.s3.bucket` and `app.s3.prefix`
+
+### Profiles
+| Profile | Kafka auth | Destination | Notes |
+| --- | --- | --- | --- |
+| `demo` | PLAINTEXT | Local | Uses `LOCAL_OUTPUT_DIR` if set |
+| `demo-s3` | PLAINTEXT | S3 (LocalStack) | Uses test credentials, `app.s3.endpoint` |
+| `local` | SASL_PLAINTEXT (PLAIN) | Local | Requires `KAFKA_USERNAME`/`KAFKA_PASSWORD` |
+| `prod` | SASL_SSL (Kerberos) | S3 | Uses IAM/default AWS credentials |
+
+### Defaults and key options
+| Property | Default | Purpose |
+| --- | --- | --- |
+| `app.source-topics` | `""` | Comma-separated Kafka topics to consume |
+| `app.dlq-topic` | `kafka-s3-sink-dlq` | DLQ topic name |
+| `app.batch.maxRecords` | `1` | Records per Parquet file |
+| `app.batch.flushInterval` | `PT0S` | Max wait before flushing |
+| `app.local.baseDir` | `/tmp/kafka-s3-sink` | Local output base dir |
+| `app.s3.region` | `us-east-1` | AWS region |
+| `app.s3.pathStyle` | `false` | Path-style S3 access |
+
+### DLQ and retry/backoff
+Spring Cloud Stream retries and DLQ behavior are configured in `application.yml`:
+- Retries: `maxAttempts`, `backOffInitialInterval`, `backOffMaxInterval`, `backOffMultiplier`
+- DLQ: `enableDlq=true` and `dlqName=${app.dlq-topic}`
 
 ### Local profile (SASL/PLAIN + local output)
 Set `SPRING_PROFILES_ACTIVE=local` and provide credentials:

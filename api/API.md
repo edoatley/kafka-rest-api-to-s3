@@ -148,6 +148,12 @@ you should see log messages in the application like this:
 gradle test
 ```
 
+## Operational endpoints
+- `GET /actuator/health`
+- `GET /actuator/info`
+- `GET /actuator/metrics`
+- `GET /actuator/prometheus`
+
 ## Notes on Avro Without Schema Registry
 - The Kafka producer uses `com.example.kafkarestapi.kafka.AvroEventSerializer`.
 - Schema evolution is your responsibility. Ensure both producers and consumers are upgraded
@@ -155,9 +161,30 @@ gradle test
 
 ## Configuration
 
-See `api/src/main/resources/application.yml` for:
+See `api/src/main/resources/application.yml` and `application-local.yml` for full settings.
 
-- Producer throughput tuning
-- `acks` trade-off between throughput and durability
-- Optional Kafka mTLS settings
-- OpenTelemetry exporter endpoint
+### Profiles
+- `local`: disables OAuth2 security and sets Kafka to PLAINTEXT.
+
+### Environment variables (common)
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Kafka broker connection |
+| `EVENTS_TOPIC` | `events` | Kafka topic name |
+| `KAFKA_SSL_KEYSTORE` | empty | Kafka mTLS keystore path |
+| `KAFKA_SSL_KEYSTORE_PASSWORD` | empty | Kafka mTLS keystore password |
+| `KAFKA_SSL_TRUSTSTORE` | empty | Kafka mTLS truststore path |
+| `KAFKA_SSL_TRUSTSTORE_PASSWORD` | empty | Kafka mTLS truststore password |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318/v1/traces` | OTLP traces endpoint |
+
+### Security (OAuth2 JWT)
+When `app.security.enabled=true` (default), supply one of:
+- `SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI`
+- `SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI`
+
+### Producer tuning (defaults)
+- `spring.kafka.producer.batch-size=65536`
+- `spring.kafka.producer.compression-type=zstd`
+- `spring.kafka.producer.buffer-memory=268435456`
+- `spring.kafka.producer.properties.linger.ms=20`
+- `spring.kafka.producer.acks=1`
