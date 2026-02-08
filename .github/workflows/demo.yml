@@ -43,12 +43,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          tmpfile="$(mktemp)" # temporary file to store the events
           for i in {1..100}; do
             printf '{"id":"evt-%03d","type":"user.created","payload":"{\"userId\":\"%03d\"}"}\n' "$i" "$i"
-          done | curl -N --no-buffer -X POST http://localhost:8080/events/stream \
+          done > "$tmpfile"
+          code="$(curl -s -o /tmp/publish-response.json -w '%{http_code}' -X POST http://localhost:8080/events/stream \
             -H "Content-Type: application/x-ndjson" \
             -H "x-ack-mode: wait" \
-            --data-binary @-
+            --data-binary @"$tmpfile")"
+          if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
+            echo "Publish failed (HTTP $code)"
+            # Print the response body for debugging
+            cat /tmp/publish-response.json || true
+            exit 1
+          fi
 
       - name: Dump stack logs on failure
         if: failure()
