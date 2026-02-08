@@ -34,6 +34,47 @@ app:
 spring:
   config:
     activate:
+      on-profile: demo
+  kafka:
+    properties:
+      security.protocol: PLAINTEXT
+
+app:
+  source-topics: "events"
+  local:
+    baseDir: ${LOCAL_OUTPUT_DIR:/tmp/kafka-s3-sink}
+  mappings:
+    - topic: events
+      destination: LOCAL
+      directory: events
+
+---
+spring:
+  config:
+    activate:
+      on-profile: demo-s3
+  kafka:
+    properties:
+      security.protocol: PLAINTEXT
+
+app:
+  source-topics: "events"
+  s3:
+    region: us-east-1
+    endpoint: http://localhost:4566
+    pathStyle: true
+    accessKeyId: test
+    secretAccessKey: test
+  mappings:
+    - topic: events
+      destination: S3
+      bucket: demo-parquet-bucket
+      prefix: events/
+
+---
+spring:
+  config:
+    activate:
       on-profile: local
   kafka:
     properties:
