@@ -82,18 +82,45 @@ jobs:
           AWS_DEFAULT_REGION: us-east-1
         run: |
           set -euo pipefail
-          aws --endpoint-url=http://localhost:4566 s3 ls s3://demo-parquet-bucket/events/
-          topic_prefix="$(aws --endpoint-url=http://localhost:4566 s3 ls s3://demo-parquet-bucket/events/ | awk '/PRE topic=/{print $2}' | head -n1)"
+          echo "Buckets:"
+          aws --endpoint-url=http://localhost:4566 s3 ls
+          echo "Listing events prefix:"
+          aws --endpoint-url=http://localhost:4566 s3 ls s3://demo-parquet-bucket/events/ || true
+
+          topic_prefix=""
+          date_prefix=""
+          for i in {1..30}; do
+            topic_prefix="$(aws --endpoint-url=http://localhost:4566 s3 ls s3://demo-parquet-bucket/events/ | awk '/PRE topic=/{print $2}' | head -n1)"
+            if [ -n "$topic_prefix" ]; then
+              break
+            fi
+            echo "Waiting for topic prefix to appear in S3"
+            sleep 2
+          done
           if [ -z "$topic_prefix" ]; then
             echo "No topic prefix found in bucket"
+            aws --endpoint-url=http://localhost:4566 s3api list-objects-v2 --bucket demo-parquet-bucket --prefix events/ --max-keys 50 || true
             exit 1
           fi
+
+          echo "Listing topic prefix: ${topic_prefix}"
           aws --endpoint-url=http://localhost:4566 s3 ls "s3://demo-parquet-bucket/events/${topic_prefix}"
-          date_prefix="$(aws --endpoint-url=http://localhost:4566 s3 ls "s3://demo-parquet-bucket/events/${topic_prefix}" | awk '/PRE date=/{print $2}' | head -n1)"
+
+          for i in {1..30}; do
+            date_prefix="$(aws --endpoint-url=http://localhost:4566 s3 ls "s3://demo-parquet-bucket/events/${topic_prefix}" | awk '/PRE date=/{print $2}' | head -n1)"
+            if [ -n "$date_prefix" ]; then
+              break
+            fi
+            echo "Waiting for date prefix to appear for ${topic_prefix}"
+            sleep 2
+          done
           if [ -z "$date_prefix" ]; then
             echo "No date prefix found for ${topic_prefix}"
+            aws --endpoint-url=http://localhost:4566 s3api list-objects-v2 --bucket demo-parquet-bucket --prefix "events/${topic_prefix}" --max-keys 50 || true
             exit 1
           fi
+
+          echo "Listing date prefix: ${date_prefix}"
           aws --endpoint-url=http://localhost:4566 s3 ls "s3://demo-parquet-bucket/events/${topic_prefix}${date_prefix}"
 
       - name: Tear down stack
