@@ -2,6 +2,7 @@ name: Demo
 
 on:
   workflow_dispatch:
+  push:
 
 jobs:
   demo:
@@ -22,19 +23,20 @@ jobs:
       - name: Start stack
         run: docker compose up --build -d
 
-      - name: Wait for API
+      - name: Wait for API health
         shell: bash
         run: |
           set -euo pipefail
           for i in {1..60}; do
-            code="$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/actuator/health || true)"
-            if [ "$code" != "000" ]; then
-              echo "API is up (HTTP $code)"
+            body="$(curl -s http://localhost:8080/actuator/health || true)"
+            if echo "$body" | grep -q '"status":"UP"'; then
+              echo "API is healthy"
               exit 0
             fi
+            echo "Waiting for API health endpoint"
             sleep 2
           done
-          echo "API did not become ready in time"
+          echo "API did not become healthy in time"
           exit 1
 
       - name: Publish test events
