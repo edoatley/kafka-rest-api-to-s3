@@ -12,13 +12,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
 import org.springframework.kafka.test.context.EmbeddedKafka;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
 
 @EmbeddedKafka(partitions = 1, topics = "events")
 @SpringBootTest(
@@ -34,7 +29,6 @@ import org.springframework.security.web.SecurityFilterChain;
         "logging.level.org.apache.kafka.storage.internals.log=OFF"
     }
 )
-@Import(EmbeddedKafkaIntegrationTest.TestSecurityConfig.class)
 class EmbeddedKafkaIntegrationTest {
 
     @LocalServerPort
@@ -97,14 +91,4 @@ class EmbeddedKafkaIntegrationTest {
         }
     }
 
-    @TestConfiguration
-    static class TestSecurityConfig {
-        @Bean
-        SecurityFilterChain testSecurityFilterChain(HttpSecurity http) throws Exception {
-            return http
-                .csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .build();
-        }
-    }
 }

@@ -14,11 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.Network;
@@ -41,7 +36,6 @@ import org.testcontainers.utility.DockerImageName;
         "logging.level.org.apache.kafka.storage.internals.log=OFF"
     }
 )
-@Import(KafkaIntegrationTest.TestSecurityConfig.class)
 class KafkaIntegrationTest {
 
     @LocalServerPort
@@ -116,14 +110,4 @@ class KafkaIntegrationTest {
         }
     }
 
-    @TestConfiguration
-    static class TestSecurityConfig {
-        @Bean
-        SecurityFilterChain testSecurityFilterChain(HttpSecurity http) throws Exception {
-            return http
-                .csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .build();
-        }
-    }
 }

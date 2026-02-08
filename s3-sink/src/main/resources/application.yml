@@ -1,0 +1,69 @@
+spring:
+  application:
+    name: kafka-s3-sink
+  cloud:
+    function:
+      definition: avroToParquet
+    stream:
+      bindings:
+        avroToParquet-in-0:
+          destination: ${app.source-topics:}
+          group: kafka-s3-sink
+          consumer:
+            maxAttempts: 5
+            backOffInitialInterval: 1000
+            backOffMaxInterval: 10000
+            backOffMultiplier: 2.0
+      kafka:
+        bindings:
+          avroToParquet-in-0:
+            consumer:
+              enableDlq: true
+              dlqName: ${app.dlq-topic:kafka-s3-sink-dlq}
+
+app:
+  source-topics: ""
+  local:
+    baseDir: /tmp/kafka-s3-sink
+  s3:
+    region: us-east-1
+    pathStyle: false
+  mappings: []
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  kafka:
+    properties:
+      security.protocol: SASL_PLAINTEXT
+      sasl.mechanism: PLAIN
+      sasl.jaas.config: >-
+        org.apache.kafka.common.security.plain.PlainLoginModule required
+        username="${KAFKA_USERNAME}" password="${KAFKA_PASSWORD}";
+
+app:
+  local:
+    baseDir: ${LOCAL_OUTPUT_DIR:/tmp/kafka-s3-sink}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  kafka:
+    properties:
+      security.protocol: SASL_SSL
+      sasl.mechanism: GSSAPI
+      sasl.kerberos.service.name: kafka
+      sasl.jaas.config: >-
+        com.sun.security.auth.module.Krb5LoginModule required
+        useKeyTab=true
+        storeKey=true
+        keyTab="${KAFKA_KEYTAB}"
+        principal="${KAFKA_PRINCIPAL}";
+
+app:
+  s3:
+    region: ${AWS_REGION}

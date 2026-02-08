@@ -60,7 +60,7 @@ docker exec -it kafka kafka-topics --bootstrap-server localhost:9092 \
 ### 2) Run the app
 
 ```
-./gradlew localBootRun
+./gradlew :api:localBootRun
 ```
 
 The `local` profile disables security for local testing and sets Kafka bootstrap servers to
@@ -155,7 +155,7 @@ gradle test
 
 ## Configuration
 
-See `src/main/resources/application.yml` for:
+See `api/src/main/resources/application.yml` for:
 
 - Producer throughput tuning
 - `acks` trade-off between throughput and durability
