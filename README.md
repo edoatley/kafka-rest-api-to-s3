@@ -31,6 +31,34 @@ flowchart LR
 - Docker Desktop (for local Kafka, optional LocalStack)
 - Gradle wrapper included (`./gradlew`)
 
+## Docker Compose demo (API -> Kafka -> Parquet -> LocalStack S3)
+
+This demo brings up Kafka, LocalStack, the API, and the sink with a single compose file.
+
+### 1) Start the stack
+
+```bash
+docker compose up --build
+```
+
+### 2) Publish test events
+
+```bash
+for i in {1..100}; do
+  printf '{"id":"evt-%03d","type":"user.created","payload":"{\"userId\":\"%03d\"}"}\n' "$i" "$i"
+done | curl -N --no-buffer -X POST http://localhost:8080/events/stream \
+  -H "Content-Type: application/x-ndjson" \
+  -H "x-ack-mode: wait" \
+  --data-binary @-
+```
+
+### 3) Verify objects in LocalStack S3
+
+```bash
+AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_DEFAULT_REGION=us-east-1 \
+  aws --endpoint-url=http://localhost:4566 s3 ls s3://demo-parquet-bucket/events/
+```
+
 ## Local demo (API -> Kafka -> Parquet -> local directory)
 
 This demo uses a local Kafka broker in Docker and writes Parquet files to a local directory.
@@ -131,7 +159,7 @@ brew install parquet-tools
 Or download a release from the [Apache Parquet Tools repository](https://github.com/apache/parquet-java/tree/master/parquet-tools)
 
 
-## LocalStack S3 variant (optional)
+## LocalStack S3 variant (not recommended - use Docker Compose if possible)
 
 You can point the sink at a LocalStack S3 bucket instead of a local directory.
 

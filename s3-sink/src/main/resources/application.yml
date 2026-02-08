@@ -33,6 +33,10 @@ app:
     pathStyle: false
   mappings: []
 
+logging:
+  level:
+    org.apache.kafka.clients.admin.internals.AdminMetadataManager: WARN
+
 ---
 spring:
   config:
@@ -62,6 +66,9 @@ spring:
 
 app:
   source-topics: "events"
+  batch:
+    maxRecords: 100
+    flushInterval: PT5S
   s3:
     region: us-east-1
     endpoint: http://localhost:4566

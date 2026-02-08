@@ -11,8 +11,8 @@ permissions:
   checks: write
 
 jobs:
-  unit-tests:
-    name: Unit Tests
+  ci:
+    name: CI
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:

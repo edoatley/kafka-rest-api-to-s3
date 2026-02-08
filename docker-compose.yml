@@ -1,0 +1,81 @@
+services:
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+
+  kafka-init:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - kafka
+    entrypoint: ["/bin/bash","-c"]
+    command: >
+      until kafka-topics --bootstrap-server kafka:29092 --list > /dev/null 2>&1; do
+        sleep 2;
+      done;
+      kafka-topics --bootstrap-server kafka:29092
+        --create --if-not-exists --topic events --partitions 1 --replication-factor 1
+
+  localstack:
+    image: localstack/localstack:3.7.1
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: s3
+    volumes:
+      - ./localstack/init:/etc/localstack/init/ready.d
+
+  localstack-init:
+    image: amazon/aws-cli:latest
+    depends_on:
+      - localstack
+    environment:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: ["/bin/sh","-c"]
+    command: >
+      until aws --endpoint-url=http://localstack:4566 s3 ls > /dev/null 2>&1; do
+        sleep 2;
+      done;
+      aws --endpoint-url=http://localstack:4566 s3 mb s3://demo-parquet-bucket || true
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    depends_on:
+      - kafka-init
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    ports:
+      - "8080:8080"
+
+  s3-sink:
+    build:
+      context: .
+      dockerfile: s3-sink/Dockerfile
+    depends_on:
+      - kafka-init
+      - localstack-init
+    environment:
+      SPRING_PROFILES_ACTIVE: demo-s3
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      APP_S3_ENDPOINT: http://localstack:4566

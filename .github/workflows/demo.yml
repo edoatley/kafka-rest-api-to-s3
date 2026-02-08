@@ -1,0 +1,73 @@
+name: Demo
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+jobs:
+  demo:
+    name: Docker Compose demo
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install AWS CLI
+        run: sudo apt-get update && sudo apt-get install -y awscli
+
+      - name: Start stack
+        run: docker compose up --build -d
+
+      - name: Wait for API
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in {1..60}; do
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/actuator/health || true)"
+            if [ "$code" != "000" ]; then
+              echo "API is up (HTTP $code)"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API did not become ready in time"
+          exit 1
+
+      - name: Publish test events
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in {1..100}; do
+            printf '{"id":"evt-%03d","type":"user.created","payload":"{\"userId\":\"%03d\"}"}\n' "$i" "$i"
+          done | curl -N --no-buffer -X POST http://localhost:8080/events/stream \
+            -H "Content-Type: application/x-ndjson" \
+            -H "x-ack-mode: wait" \
+            --data-binary @-
+
+      - name: Verify Parquet output in LocalStack
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+        run: |
+          set -euo pipefail
+          aws --endpoint-url=http://localhost:4566 s3 ls s3://demo-parquet-bucket/events/
+          topic_prefix="$(aws --endpoint-url=http://localhost:4566 s3 ls s3://demo-parquet-bucket/events/ | awk '/PRE topic=/{print $2}' | head -n1)"
+          if [ -z "$topic_prefix" ]; then
+            echo "No topic prefix found in bucket"
+            exit 1
+          fi
+          aws --endpoint-url=http://localhost:4566 s3 ls "s3://demo-parquet-bucket/events/${topic_prefix}"
+          date_prefix="$(aws --endpoint-url=http://localhost:4566 s3 ls "s3://demo-parquet-bucket/events/${topic_prefix}" | awk '/PRE date=/{print $2}' | head -n1)"
+          if [ -z "$date_prefix" ]; then
+            echo "No date prefix found for ${topic_prefix}"
+            exit 1
+          fi
+          aws --endpoint-url=http://localhost:4566 s3 ls "s3://demo-parquet-bucket/events/${topic_prefix}${date_prefix}"
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose down -v
