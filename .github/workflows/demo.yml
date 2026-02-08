@@ -50,6 +50,15 @@ jobs:
             -H "x-ack-mode: wait" \
             --data-binary @-
 
+      - name: Dump stack logs on failure
+        if: failure()
+        run: |
+          docker compose ps
+          docker compose logs --no-color api
+          docker compose logs --no-color s3-sink
+          docker compose logs --no-color kafka
+          docker compose logs --no-color localstack
+
       - name: Verify Parquet output in LocalStack
         shell: bash
         env:
