@@ -43,10 +43,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tmpfile="$(mktemp)" # temporary file to store the events
-          for i in {1..100}; do
-            printf '{"id":"evt-%03d","type":"user.created","payload":"{\"userId\":\"%03d\"}"}\n' "$i" "$i"
-          done > "$tmpfile"
+          tmpfile="$(mktemp)"
+          python3 - <<'PY' > "$tmpfile"
+          import json
+          for i in range(1, 101):
+              payload = json.dumps({"userId": f"{i:03d}"})
+              print(json.dumps({
+                  "id": f"evt-{i:03d}",
+                  "type": "user.created",
+                  "payload": payload,
+              }))
+          PY
           code="$(curl -s -o /tmp/publish-response.json -w '%{http_code}' -X POST http://localhost:8080/events/stream \
             -H "Content-Type: application/x-ndjson" \
             -H "x-ack-mode: wait" \
