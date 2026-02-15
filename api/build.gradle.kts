@@ -19,6 +19,7 @@ dependencies {
     implementation("io.micrometer:micrometer-tracing-bridge-otel")
     implementation("io.micrometer:micrometer-registry-otlp")
     implementation("org.apache.avro:avro:1.12.1")
+    implementation("io.confluent:kafka-avro-serializer:7.6.0")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.kafka:spring-kafka-test")

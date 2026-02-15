@@ -52,3 +52,5 @@ app:
   kafka:
     topic:
       events: ${EVENTS_TOPIC:events}
+      events-schema-registry: ${EVENTS_SCHEMA_REGISTRY_TOPIC:events-schema-registry}
+    schema-registry-url: ${SCHEMA_REGISTRY_URL:}

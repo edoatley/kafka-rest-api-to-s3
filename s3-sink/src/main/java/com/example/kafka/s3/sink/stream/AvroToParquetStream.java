@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.Message;
 
-import com.example.kafka.s3.sink.avro.AvroDecoder;
+import com.example.kafka.s3.sink.avro.AvroDecoderInterface;
 import com.example.kafka.s3.sink.avro.DecodedAvro;
 import com.example.kafka.s3.sink.writer.WriterRouter;
 
@@ -15,7 +15,7 @@ import com.example.kafka.s3.sink.writer.WriterRouter;
 public class AvroToParquetStream {
 
 	@Bean
-	public Consumer<Message<byte[]>> avroToParquet(AvroDecoder decoder, WriterRouter router) {
+	public Consumer<Message<byte[]>> avroToParquet(AvroDecoderInterface decoder, WriterRouter router) {
 		return message -> {
 			String topic = (String) message.getHeaders().get(KafkaHeaders.RECEIVED_TOPIC);
 			if (topic == null || topic.isBlank()) {

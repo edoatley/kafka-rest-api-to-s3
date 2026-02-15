@@ -6,12 +6,22 @@ This repository contains two Spring Boot applications that work together:
 - `s3-sink/` consumes those events, converts Avro to Parquet, and writes output to a local directory
   (for demo/testing) or to S3 (production).
 
+Two encoding modes are supported:
+- **v1 (OCF)**: Schema embedded in each message. Topic `events`. Endpoints `/events`, `/events/stream`.
+- **v2 (Schema Registry)**: Schema stored in Confluent Schema Registry. Topic `events-schema-registry`. Endpoints `/events/v2`, `/events/v2/stream`.
+
 ## Architecture overview
 
 ```mermaid
 flowchart LR
-  Api[REST_API] --> Kafka[Kafka]
-  Kafka --> Decoder[AvroDecoder]
+  subgraph api [API]
+    V1["/events v1 OCF"]
+    V2["/events/v2 Schema Registry"]
+  end
+  V1 --> Kafka[Kafka]
+  V2 --> Kafka
+  V2 -.->|register/fetch| SR[Schema Registry]
+  Kafka --> Decoder[Avro Decoder]
   Decoder --> Parquet[ParquetConverter]
   Parquet --> Writer[WriterRouter]
   Writer --> Local[LocalParquetWriter]
@@ -20,16 +30,18 @@ flowchart LR
 
 ## Modules
 
-- `api/` — high-throughput REST API producer with Avro encoding.
+- `api/` — high-throughput REST API producer with Avro encoding (OCF or Schema Registry).
   See `api/API.md` for API usage and Kafka setup details.
-- `s3-sink/` — Kafka consumer that writes Parquet to local or S3.
+- `s3-sink/` — Kafka consumer that writes Parquet to local or S3. Supports both OCF and Schema Registry wire formats.
   See `s3-sink/S3-Sink.md` for sink behavior and configuration.
 
 ## Key configuration (high level)
 
-- API Kafka topic name: `EVENTS_TOPIC` (default `events`)
+- API Kafka topics: `EVENTS_TOPIC` (default `events`), `EVENTS_SCHEMA_REGISTRY_TOPIC` (default `events-schema-registry`)
+- API Schema Registry: `SCHEMA_REGISTRY_URL` (required for v2 endpoints)
 - API security/profile: `SPRING_PROFILES_ACTIVE=local` disables OAuth2 and uses PLAINTEXT Kafka
 - Sink input/output mappings: `app.source-topics` and `app.mappings` control topic routing
+- Sink Schema Registry: `SCHEMA_REGISTRY_URL` or `app.schema-registry-url` (required to decode Schema Registry format)
 - Sink batching: `app.batch.maxRecords` and `app.batch.flushInterval`
 - Sink S3 endpoint override (LocalStack/testing): `app.s3.endpoint` (env `APP_S3_ENDPOINT`)
 
@@ -43,10 +55,10 @@ See module docs for full configuration reference:
 - Docker Desktop (for local Kafka, optional LocalStack)
 - Gradle wrapper included (`./gradlew`)
 
-## Docker Compose demo (API -> Kafka -> Parquet -> LocalStack S3)
+## Docker Compose demo (API -> Kafka -> Schema Registry -> Parquet -> LocalStack S3)
 
-This demo brings up Kafka, LocalStack, the API, and the sink with a single compose file.
-The sink runs with the `demo-s3` profile, which targets LocalStack S3.
+This demo brings up Kafka, Schema Registry, LocalStack, the API, and the sink with a single compose file.
+The sink runs with the `demo-s3` profile, which targets LocalStack S3 and consumes from both `events` and `events-schema-registry` topics.
 
 ### 1) Start the stack
 
@@ -56,13 +68,28 @@ docker compose up --build
 
 ### 2) Publish test events
 
+Use Python for correct JSON escaping of nested payloads:
+
 ```bash
-for i in {1..100}; do
-  printf '{"id":"evt-%03d","type":"user.created","payload":"{\"userId\":\"%03d\"}"}\n' "$i" "$i"
-done | curl -N --no-buffer -X POST http://localhost:8080/events/stream \
-  -H "Content-Type: application/x-ndjson" \
-  -H "x-ack-mode: wait" \
-  --data-binary @-
+python3 - <<'PY' | curl -N --no-buffer -X POST http://localhost:8080/events/stream \
+  -H "Content-Type: application/x-ndjson" -H "x-ack-mode: wait" --data-binary @-
+import json
+for i in range(1, 101):
+    payload = json.dumps({"userId": f"{i:03d}"})
+    print(json.dumps({"id": f"evt-{i:03d}", "type": "user.created", "payload": payload}))
+PY
+```
+
+To publish to the v2 Schema Registry endpoint instead:
+
+```bash
+python3 - <<'PY' | curl -N --no-buffer -X POST http://localhost:8080/events/v2/stream \
+  -H "Content-Type: application/x-ndjson" -H "x-ack-mode: wait" --data-binary @-
+import json
+for i in range(1, 101):
+    payload = json.dumps({"userId": f"{i:03d}"})
+    print(json.dumps({"id": f"evt-sr-{i:03d}", "type": "user.created", "payload": payload}))
+PY
 ```
 
 ### 3) Verify objects in LocalStack S3
@@ -70,7 +97,18 @@ done | curl -N --no-buffer -X POST http://localhost:8080/events/stream \
 ```bash
 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_DEFAULT_REGION=us-east-1 \
   aws --endpoint-url=http://localhost:4566 s3 ls s3://demo-parquet-bucket/events/
+  aws --endpoint-url=http://localhost:4566 s3 ls s3://demo-parquet-bucket/events-schema-registry/
 ```
+
+### Automated local test (v1 + v2)
+
+Run the script to start the stack (if needed), publish to both v1 and v2 endpoints, and verify S3 output:
+
+```bash
+./scripts/local-demo-test.sh
+```
+
+Requires `docker compose`, `curl`, `aws` CLI, and `python3`. Exits on first failure with diagnostic output.
 
 ## Local demo (API -> Kafka -> Parquet -> local directory)
 
@@ -126,15 +164,16 @@ curl -X POST http://localhost:8080/events \
   -d '{"id":"evt-1","type":"user.created","payload":"{\"userId\":\"123\"}"}'
 ```
 
-Publish a larger batch (NDJSON stream):
+Publish a larger batch (NDJSON stream). Use Python for correct JSON escaping:
 
 ```bash
-for i in {1..100}; do
-  printf '{"id":"evt-%03d","type":"user.created","payload":"{\"userId\":\"%03d\"}"}\n' "$i" "$i"
-done | curl -N --no-buffer -X POST http://localhost:8080/events/stream \
-  -H "Content-Type: application/x-ndjson" \
-  -H "x-ack-mode: wait" \
-  --data-binary @-
+python3 - <<'PY' | curl -N --no-buffer -X POST http://localhost:8080/events/stream \
+  -H "Content-Type: application/x-ndjson" -H "x-ack-mode: wait" --data-binary @-
+import json
+for i in range(1, 101):
+    payload = json.dumps({"userId": f"{i:03d}"})
+    print(json.dumps({"id": f"evt-{i:03d}", "type": "user.created", "payload": payload}))
+PY
 ```
 
 ### 5) Verify output
@@ -225,11 +264,15 @@ which shows the parquet:
 
 ## Notes and troubleshooting
 
-- The sink expects Avro **Object Container File (OCF)** payloads.
-  The API already produces OCF, so the demo flow works end-to-end.
+- The sink supports two Avro wire formats:
+  - **OCF** (Object Container File): schema embedded in each message. Used by v1 API.
+  - **Schema Registry**: Confluent format (magic byte + schema ID + binary). Used by v2 API. Requires `SCHEMA_REGISTRY_URL`.
 
-- If you change the topic name, update `EVENTS_TOPIC` in the API and `app.source-topics`
-  / `app.mappings` in the sink.
+- The v2 endpoints (`/events/v2`, `/events/v2/stream`) are only available when `SCHEMA_REGISTRY_URL` is configured.
+
+- Use Python (or another JSON library) when generating NDJSON with nested JSON in the `payload` field. Shell `printf` escaping can produce invalid JSON.
+
+- If you change topic names, update `EVENTS_TOPIC` / `EVENTS_SCHEMA_REGISTRY_TOPIC` in the API and `app.source-topics` / `app.mappings` in the sink.
 
 - Module docs with deeper detail:
   - `api/API.md`

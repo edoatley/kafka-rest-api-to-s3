@@ -13,6 +13,7 @@ dependencies {
 	implementation("org.springframework.cloud:spring-cloud-stream")
 	implementation("org.springframework.cloud:spring-cloud-stream-binder-kafka")
 	implementation("org.apache.avro:avro:1.11.4")
+	implementation("io.confluent:kafka-avro-serializer:7.6.0")
 	implementation("org.apache.parquet:parquet-avro:1.14.3")
 	implementation("org.apache.hadoop:hadoop-common:3.4.1") {
 		exclude(group = "org.slf4j", module = "slf4j-reload4j")

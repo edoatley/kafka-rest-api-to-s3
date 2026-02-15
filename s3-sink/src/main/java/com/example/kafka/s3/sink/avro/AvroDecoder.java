@@ -12,8 +12,9 @@ import org.apache.avro.generic.GenericRecord;
 import org.springframework.stereotype.Component;
 
 @Component
-public class AvroDecoder {
+public class AvroDecoder implements AvroDecoderInterface {
 
+	@Override
 	public DecodedAvro decode(byte[] payload) {
 		try (DataFileStream<GenericRecord> stream = new DataFileStream<>(
 				new ByteArrayInputStream(payload), new GenericDatumReader<>())) {

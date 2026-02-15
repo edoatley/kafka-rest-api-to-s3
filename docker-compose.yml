@@ -28,7 +28,20 @@ services:
         sleep 2;
       done;
       kafka-topics --bootstrap-server kafka:29092
-        --create --if-not-exists --topic events --partitions 1 --replication-factor 1
+        --create --if-not-exists --topic events --partitions 1 --replication-factor 1;
+      kafka-topics --bootstrap-server kafka:29092
+        --create --if-not-exists --topic events-schema-registry --partitions 1 --replication-factor 1
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:latest
+    depends_on:
+      - kafka-init
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
 
   localstack:
     image: localstack/localstack:3.7.1
@@ -60,10 +73,12 @@ services:
       dockerfile: api/Dockerfile
     depends_on:
       - kafka-init
+      - schema-registry
     environment:
       SPRING_PROFILES_ACTIVE: local
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
     ports:
       - "8080:8080"
 
@@ -73,9 +88,11 @@ services:
       dockerfile: s3-sink/Dockerfile
     depends_on:
       - kafka-init
+      - schema-registry
       - localstack-init
     environment:
       SPRING_PROFILES_ACTIVE: demo-s3
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
       APP_S3_ENDPOINT: http://localstack:4566

@@ -23,6 +23,7 @@ spring:
 
 app:
   source-topics: ""
+  schema-registry-url: ${SCHEMA_REGISTRY_URL:}
   batch:
     maxRecords: 1
     flushInterval: PT0S
@@ -65,7 +66,8 @@ spring:
       security.protocol: PLAINTEXT
 
 app:
-  source-topics: "events"
+  source-topics: "events,events-schema-registry"
+  schema-registry-url: ${SCHEMA_REGISTRY_URL:}
   batch:
     maxRecords: 100
     flushInterval: PT5S
@@ -80,6 +82,10 @@ app:
       destination: S3
       bucket: demo-parquet-bucket
       prefix: events/
+    - topic: events-schema-registry
+      destination: S3
+      bucket: demo-parquet-bucket
+      prefix: events-schema-registry/
 
 ---
 spring:
