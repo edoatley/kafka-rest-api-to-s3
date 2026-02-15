@@ -127,7 +127,7 @@ jobs:
           fi
 
       - name: Wait for S3 sink flush
-        run: sleep 5
+        run: sleep 15
 
       - name: Dump stack logs on failure
         if: failure()
@@ -156,11 +156,11 @@ jobs:
           topic_prefix=""
           date_prefix=""
           for i in {1..30}; do
-            topic_prefix="$(aws --endpoint-url=http://localhost:4566 s3 ls s3://demo-parquet-bucket/events/ | awk '/PRE topic=/{print $2}' | head -n1)"
+            topic_prefix="$(aws --endpoint-url=http://localhost:4566 s3 ls s3://demo-parquet-bucket/events/ 2>/dev/null | awk '/PRE topic=/{print $2}' | head -n1 || true)"
             if [ -n "$topic_prefix" ]; then
               break
             fi
-            echo "Waiting for topic prefix to appear in S3"
+            echo "Waiting for topic prefix to appear in S3 (attempt $i/30)"
             sleep 2
           done
           if [ -z "$topic_prefix" ]; then
